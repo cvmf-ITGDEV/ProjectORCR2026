@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -23,8 +25,20 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // This refreshes a user's session in case they have stale data
-  await supabase.auth.getSession();
+  const { data: { session }, error } = await supabase.auth.getSession();
+
+  const isProtectedRoute = pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname.startsWith("/application");
+  const isLoginPage = pathname === "/login";
+
+  if (!session && isProtectedRoute) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (session && isLoginPage) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
   return supabaseResponse;
 }
