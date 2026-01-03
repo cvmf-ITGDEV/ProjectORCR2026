@@ -17,24 +17,24 @@ export class AuditLogRepository {
     const repo = await AuditLogRepository.getRepository();
     return repo.findOne({
       where: { id },
-      relations: ["user"],
+      relations: ["user", "application"],
     });
   }
 
-  static async findByEntityId(entityId: string): Promise<AuditLog[]> {
+  static async findByApplicationId(applicationId: string): Promise<AuditLog[]> {
     const repo = await AuditLogRepository.getRepository();
     return repo.find({
-      where: { entityId },
-      relations: ["user"],
+      where: { applicationId },
+      relations: ["user", "application"],
       order: { createdAt: "DESC" },
     });
   }
 
-  static async findByEntityType(entityType: string): Promise<AuditLog[]> {
+  static async findByAction(action: string): Promise<AuditLog[]> {
     const repo = await AuditLogRepository.getRepository();
     return repo.find({
-      where: { entityType },
-      relations: ["user"],
+      where: { action },
+      relations: ["user", "application"],
       order: { createdAt: "DESC" },
     });
   }
@@ -43,7 +43,7 @@ export class AuditLogRepository {
     const repo = await AuditLogRepository.getRepository();
     return repo.find({
       where: { userId },
-      relations: ["user"],
+      relations: ["user", "application"],
       order: { createdAt: "DESC" },
     });
   }
@@ -51,7 +51,7 @@ export class AuditLogRepository {
   static async findAll(): Promise<AuditLog[]> {
     const repo = await AuditLogRepository.getRepository();
     return repo.find({
-      relations: ["user"],
+      relations: ["user", "application"],
       order: { createdAt: "DESC" },
     });
   }

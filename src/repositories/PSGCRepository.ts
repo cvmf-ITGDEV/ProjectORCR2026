@@ -71,7 +71,7 @@ export class PSGCRepository {
     const { city } = await PSGCRepository.getRepositories();
     return city.find({
       relations: ["province"],
-      order: { cityDesc: "ASC" },
+      order: { cityMunDesc: "ASC" },
     });
   }
 
@@ -80,7 +80,7 @@ export class PSGCRepository {
     return city.find({
       where: { provCode },
       relations: ["province"],
-      order: { cityDesc: "ASC" },
+      order: { cityMunDesc: "ASC" },
     });
   }
 
@@ -107,8 +107,8 @@ export class PSGCRepository {
     const { city } = await PSGCRepository.getRepositories();
     return city.createQueryBuilder("c")
       .leftJoinAndSelect("c.province", "province")
-      .where("c.cityDesc ILIKE :query", { query: `%${query}%` })
-      .orderBy("c.cityDesc", "ASC")
+      .where("c.cityMunDesc ILIKE :query", { query: `%${query}%` })
+      .orderBy("c.cityMunDesc", "ASC")
       .getMany();
   }
 }

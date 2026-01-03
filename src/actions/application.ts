@@ -41,11 +41,11 @@ export async function createApplication(
 
     // Log creation
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: application.id,
       action: "CREATE",
       userId: processorId,
-      newValues: validated,
+      applicationId: application.id,
+      newStatus: "draft",
+      details: validated,
     });
 
     return { success: true, data: application };
@@ -75,16 +75,19 @@ export async function updateApplication(
 
     // Log update
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "UPDATE",
       userId,
-      oldValues: {
-        borrowerName: oldApplication.borrowerName,
-        borrowerEmail: oldApplication.borrowerEmail,
-        loanAmount: oldApplication.loanAmount,
+      applicationId: id,
+      oldStatus: oldApplication.status,
+      newStatus: oldApplication.status,
+      details: {
+        old: {
+          borrowerName: oldApplication.borrowerName,
+          borrowerEmail: oldApplication.borrowerEmail,
+          loanAmount: oldApplication.loanAmount,
+        },
+        new: validated,
       },
-      newValues: validated,
     });
 
     return { success: true, data: updated };
@@ -121,12 +124,11 @@ export async function updateApplicationStatus(
 
     // Log status change
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "STATUS_CHANGE",
       userId: userId || oldApplication.processorId || undefined,
-      oldValues: { status: oldApplication.status },
-      newValues: { status },
+      applicationId: id,
+      oldStatus: oldApplication.status,
+      newStatus: status,
     });
 
     return { success: true, data: updated };
@@ -184,14 +186,13 @@ export async function deleteApplication(id: string, userId: string): Promise<Act
 
     // Log deletion
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "DELETE",
       userId,
-      oldValues: {
+      applicationId: id,
+      oldStatus: oldApplication.status,
+      details: {
         id: oldApplication.id,
         applicationNumber: oldApplication.applicationNumber,
-        status: oldApplication.status,
       },
     });
 
@@ -226,15 +227,18 @@ export async function saveBorrowerInfo(
 
     // Log update
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "UPDATE",
-      userId: application.processorId,
-      oldValues: {
-        borrowerName: application.borrowerName,
-        borrowerEmail: application.borrowerEmail,
+      userId: application.processorId || undefined,
+      applicationId: id,
+      oldStatus: application.status,
+      newStatus: application.status,
+      details: {
+        old: {
+          borrowerName: application.borrowerName,
+          borrowerEmail: application.borrowerEmail,
+        },
+        new: validated,
       },
-      newValues: validated,
     });
 
     return { success: true, data: updated };
@@ -268,15 +272,18 @@ export async function saveVehicleInfo(
 
     // Log update
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "UPDATE",
-      userId: application.processorId,
-      oldValues: {
-        vehicleMake: application.vehicleMake,
-        vehicleModel: application.vehicleModel,
+      userId: application.processorId || undefined,
+      applicationId: id,
+      oldStatus: application.status,
+      newStatus: application.status,
+      details: {
+        old: {
+          vehicleMake: application.vehicleMake,
+          vehicleModel: application.vehicleModel,
+        },
+        new: validated,
       },
-      newValues: validated,
     });
 
     return { success: true, data: updated };
@@ -327,15 +334,18 @@ export async function saveLoanDetails(
 
     // Log update
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "UPDATE",
-      userId: application.processorId,
-      oldValues: {
-        loanAmount: application.loanAmount,
-        interestRate: application.interestRate,
+      userId: application.processorId || undefined,
+      applicationId: id,
+      oldStatus: application.status,
+      newStatus: application.status,
+      details: {
+        old: {
+          loanAmount: application.loanAmount,
+          interestRate: application.interestRate,
+        },
+        new: validated,
       },
-      newValues: validated,
     });
 
     return { success: true, data: updated };
@@ -363,12 +373,11 @@ export async function submitApplication(id: string): Promise<ActionResult> {
 
     // Log submission
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: id,
       action: "SUBMIT",
-      userId: application.processorId,
-      oldValues: { status: application.status },
-      newValues: { status: "submitted" },
+      userId: application.processorId || undefined,
+      applicationId: id,
+      oldStatus: application.status,
+      newStatus: "submitted",
     });
 
     return { success: true, data: updated };
@@ -411,13 +420,14 @@ export async function generateOrCr(id: string): Promise<ActionResult> {
     // Update application status to active
     await ApplicationRepository.update(id, { status: "active" });
 
-    // Log creation
+    // Log OR/CR generation
     await AuditLogRepository.create({
-      entityType: "OrCrRecord",
-      entityId: id,
-      action: "CREATE",
-      userId: application.processorId,
-      newValues: orCrRecord,
+      action: "GENERATE_OR_CR",
+      userId: application.processorId || undefined,
+      applicationId: id,
+      oldStatus: application.status,
+      newStatus: "active",
+      details: orCrRecord,
     });
 
     return { success: true, data: orCrRecord };
@@ -468,11 +478,11 @@ export async function getOrCreateDraft(processorId?: string): Promise<ActionResu
 
     // Log creation
     await AuditLogRepository.create({
-      entityType: "Application",
-      entityId: newDraft.id,
       action: "CREATE",
       userId,
-      newValues: { applicationNumber, status: "draft" },
+      applicationId: newDraft.id,
+      newStatus: "draft",
+      details: { applicationNumber },
     });
 
     return { success: true, data: newDraft };
