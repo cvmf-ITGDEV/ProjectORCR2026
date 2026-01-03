@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { UserRepository } from "@/repositories/UserRepository";
+import { UserSyncService } from "@/lib/auth/user-sync";
 import { ActionResult } from "@/types";
 
 export async function login(formData: FormData): Promise<ActionResult> {
@@ -28,6 +28,12 @@ export async function login(formData: FormData): Promise<ActionResult> {
       return { success: false, error: "Failed to sign in" };
     }
 
+    await UserSyncService.ensureUserExists(
+      data.user.id,
+      data.user.email || email,
+      data.user.user_metadata?.full_name
+    );
+
     redirect("/dashboard");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -39,6 +45,7 @@ export async function register(formData: FormData): Promise<ActionResult> {
   try {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const fullName = formData.get("fullName") as string;
 
     if (!email || !password) {
       return { success: false, error: "Email and password are required" };
@@ -48,6 +55,11 @@ export async function register(formData: FormData): Promise<ActionResult> {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName || undefined,
+        },
+      },
     });
 
     if (error) {
@@ -58,12 +70,11 @@ export async function register(formData: FormData): Promise<ActionResult> {
       return { success: false, error: "Failed to create account" };
     }
 
-    // Create user in database
-    await UserRepository.create({
-      supabaseUserId: data.user.id,
+    await UserSyncService.syncUserOnFirstLogin(
+      data.user.id,
       email,
-      role: "processor",
-    });
+      fullName || undefined
+    );
 
     redirect("/dashboard");
   } catch (error) {
@@ -78,17 +89,16 @@ export async function logout(): Promise<void> {
   redirect("/login");
 }
 
-export async function signUp(email: string, password: string, fullName: string): Promise<ActionResult> {
+export async function signUp(email: string, password: string, fullName?: string): Promise<ActionResult> {
   try {
     const supabase = await createClient();
 
-    // Sign up with Supabase
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: fullName || undefined,
         },
       },
     });
@@ -101,13 +111,11 @@ export async function signUp(email: string, password: string, fullName: string):
       return { success: false, error: "Failed to create user" };
     }
 
-    // Create user in database
-    const user = await UserRepository.create({
-      supabaseUserId: data.user.id,
+    const user = await UserSyncService.syncUserOnFirstLogin(
+      data.user.id,
       email,
-      fullName,
-      role: "processor",
-    });
+      fullName
+    );
 
     return { success: true, data: user };
   } catch (error) {
@@ -133,15 +141,11 @@ export async function signIn(email: string, password: string): Promise<ActionRes
       return { success: false, error: "Failed to sign in" };
     }
 
-    // Verify or create user in database
-    let user = await UserRepository.findBySupabaseUserId(data.user.id);
-    if (!user) {
-      user = await UserRepository.create({
-        supabaseUserId: data.user.id,
-        email: data.user.email || "",
-        role: "processor",
-      });
-    }
+    const user = await UserSyncService.ensureUserExists(
+      data.user.id,
+      data.user.email || email,
+      data.user.user_metadata?.full_name
+    );
 
     return { success: true, data: user };
   } catch (error) {
@@ -179,8 +183,7 @@ export async function getSession(): Promise<ActionResult> {
       return { success: false, error: "No active session" };
     }
 
-    // Get user from database
-    const user = await UserRepository.findBySupabaseUserId(data.session.user.id);
+    const user = await UserSyncService.getUserBySupabaseId(data.session.user.id);
 
     return { success: true, data: { user, session: data.session } };
   } catch (error) {
